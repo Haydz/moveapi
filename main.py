@@ -28,31 +28,172 @@
 #create dynamodb table with year and title.
 # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/client/create_table.html#
 import boto3
+import json
 
+tableName = "Movies"
 dynamodb = boto3.client('dynamodb')
 
-table = dynamodb.create_table(
-   TableName='Movies',
-    AttributeDefinitions=[
-        {
-            'AttributeName': 'year',
-            'AttributeType': 'N'
-        },
-            {
-            'AttributeName': 'title',
-            'AttributeType': 'N'
-        }
-    ],
-    KeySchema=[
-        {
-            'AttributeName': 'year',
-            'KeyType': 'HASH'
-        },
-                {
-            'AttributeName': 'title',
-            'KeyType': 'RANGE'
-        },
+# === USED FOR DELETING TABLE ===
+# try: 
+#     response = dynamodb.delete_table(
+#         TableName=tableName,
+#     )
+#     print("Table deleted")
+#     waiter = dynamodb.get_waiter('table_not_exists')
 
-    ],
-     BillingMode='PAY_PER_REQUEST'
-)
+#     waiter.wait(
+#         TableName=tableName,
+#         WaiterConfig={
+#             'Delay': 5,
+#             'MaxAttempts': 10
+#         }
+# )
+# except:
+#     print("table did not exist")
+
+# waiter = dynamodb.get_waiter('table_not_exists')
+
+# waiter.wait(
+#     TableName=tableName,
+#     WaiterConfig={
+#         'Delay': 5,
+#         'MaxAttempts': 10
+#     }
+# )
+#===============
+
+
+# Ensuring Table exists
+tableList= dynamodb.list_tables()
+
+tableFound = False
+for table in tableList["TableNames"]:
+    if tableName == table:
+        print(f"Table Found: {tableName}, no need to create!")
+        tableFound = True
+        break
+    else:
+        continue
+#if table is not found, we create it
+if tableFound == False:
+    print("creating table")
+    table = dynamodb.create_table(
+    TableName=tableName,
+        AttributeDefinitions=[
+            {
+                'AttributeName': 'year',
+                'AttributeType': 'N'
+            },
+                {
+                'AttributeName': 'title',
+                'AttributeType': 'S'
+            }
+        ],
+        KeySchema=[
+            {
+                'AttributeName': 'year',
+                'KeyType': 'HASH'
+            },
+                    {
+                'AttributeName': 'title',
+                'KeyType': 'RANGE'
+            },
+
+        ],
+        BillingMode='PAY_PER_REQUEST'
+    )
+    print("waiting for table to exist")
+    waiter = dynamodb.get_waiter('table_exists')
+
+    waiter.wait(
+        TableName='string',
+        WaiterConfig={
+            'Delay': 10,
+            'MaxAttempts': 30
+        }
+    )
+    tableFound = True
+
+
+print("writing data")
+
+# We add data to dynamodb
+if tableFound == True:
+    response = dynamodb.batch_write_item(
+        RequestItems={
+            tableName: [
+                {
+                    'PutRequest': {
+                        'Item': {
+                            'year': {
+                                'N': '1996',
+                            },
+                            'title': {
+                                'S': 'Fear',
+                            },
+                        },
+                    },
+                },
+                            {
+                    'PutRequest': {
+                        'Item': {
+                            'year': {
+                                'N': '1979',
+                            },
+                            'title': {
+                                'S': 'Alien',
+                            },
+                        },
+                    },
+                },
+            ]
+        },
+    )
+
+
+try:
+    response_get = dynamodb.get_item(
+        Key={
+            'year': {
+                'N': '1996',
+            },
+            'title': {
+                'S': 'Fear',
+            },
+        },
+        TableName=tableName,
+    )
+    print(response_get)
+except:
+    print("Error getting data")
+
+if "Item" in response_get:
+    year = response_get['Item']['year']['N']
+    title = response_get['Item']['title']['S']
+
+    print(f"The data back is {year} and {title} ")
+else:
+    print("Data not found")
+
+
+
+
+
+
+
+# ==== deleting always to save money==
+# print("Deleting again")
+# response = dynamodb.delete_table(
+#     TableName=tableName
+# )
+
+# waiter = dynamodb.get_waiter('table_not_exists')
+
+# waiter.wait(
+#     TableName=tableName,
+#     WaiterConfig={
+#         'Delay': 5,
+#         'MaxAttempts': 10
+#     }
+# )
+
