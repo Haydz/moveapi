@@ -13,7 +13,7 @@
 # lets containerize it
 
 # import requests
-# api_key = "7d7abb64"
+# api_key = "xxxx"
 
 # respone = requests.get(f"http://www.omdbapi.com/?apikey={api_key}&t=Dragon")
 
