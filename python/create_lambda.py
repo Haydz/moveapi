@@ -57,28 +57,6 @@ def make_lambda():
         ]
     }
 
-    logs_policy={
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Effect": "Allow",
-                "Action": "logs:CreateLogGroup",
-                "Resource": "arn:aws:logs:us-east-1:{account_number}:*"
-            },
-            {
-                "Effect": "Allow",
-                "Action": [
-                    "logs:CreateLogStream",
-                    "logs:PutLogEvents"
-                ],
-                "Resource": [
-                    "arn:aws:logs:us-east-1:{account_number}:log-group:/aws/lambda/haydn_movie_api:*"
-                ]
-            }
-        ]
-    }
-
-
     iam_policy= {
         "Version": "2012-10-17",
         "Statement": [
@@ -128,47 +106,47 @@ def make_lambda():
     # write data to a file using with statement
 
     lambda_code = """
-    import json
-    import boto3
+import json
+import boto3
 
-    def lambda_handler(event, context):
-        tableName = "Movies"
-        dynamodb = boto3.client('dynamodb')
-        response_get = None
-        print("attempting to get data")
-        try:
-            response_get = dynamodb.get_item(
-                Key={
-                    'year': {
-                        'N': '1996',
-                    },
-                    'title': {
-                        'S': 'Fear',
-                    },
+def lambda_handler(event, context):
+    tableName = "Movies"
+    dynamodb = boto3.client('dynamodb')
+    response_get = None
+    print("attempting to get data")
+    try:
+        response_get = dynamodb.get_item(
+            Key={
+                'year': {
+                    'N': '1996',
                 },
-                TableName=tableName,
-            )
-        except:
-            print("Error getting data")
-        if response_get == None:
-            print("nothing found")
+                'title': {
+                    'S': 'Fear',
+                },
+            },
+            TableName=tableName,
+        )
+    except:
+        print("Error getting data")
+    if response_get == None:
+        print("nothing found")
+    else:
+        if "Item" in response_get:
+            year = response_get['Item']['year']['N']
+            title = response_get['Item']['title']['S']
+    
+            print(f"The data back is {year} and {title} ")
         else:
-            if "Item" in response_get:
-                year = response_get['Item']['year']['N']
-                title = response_get['Item']['title']['S']
-        
-                print(f"The data back is {year} and {title} ")
-            else:
-                print("Data not found")
+            print("Data not found")
 
-        return {
-            'statusCode': 200,
-            'body': json.dumps(f"The data back is {year} and {title} " )
-        }
+    return {
+        'statusCode': 200,
+        'body': json.dumps(f"The data back is {year} and {title} " )
+    }
     """
 
     # Writing to file
-    with open("handler.py", 'w') as file1:
+    with open(source_file, 'w') as file1:
         # Writing data to a file
         file1.write(lambda_code)
 

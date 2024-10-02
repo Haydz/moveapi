@@ -6,9 +6,42 @@
 import boto3
 import json
 import create_lambda
+import logging
+from botocore.exceptions import ClientError
+
+
+
+# uploading file into S3
+s3 = boto3.client('s3')
+image = "https://m.media-amazon.com/images/M/MV5BZTM4ZmJmMTQtMWUxOS00MjQxLTllNmQtNzI4YWVhYzZlNTRkXkEyXkFqcGdeQXVyNjU0NTI0Nw@@._V1_SX300.jpg"
+bucket_name= 'haydn-test-stuff'
+filename = 'fear.jpg'
+
+print(f'Uploading {filename} to s3 bucket: {bucket_name}' )
+#create pre sign url
+s3 = boto3.client('s3')
+try:
+    response = s3.upload_file(filename, bucket_name, filename )
+except ClientError as e:
+        logging.error(e)
+
+print(f'Creating Presigned URL for {filename}' )
+
+try:
+    resp = s3.generate_presigned_url('get_object', Params={'Bucket': bucket_name, 'Key':filename}, ExpiresIn=180)
+    presigned_url = resp
+except ClientError as e:
+        logging.error(e)
+
+print(f'The presigned url is {presigned_url}')
+      
+
+
+
 
 tableName = "Movies"
 dynamodb = boto3.client('dynamodb')
+
 
 # === USED FOR DELETING TABLE ===
 # try: 
@@ -38,6 +71,16 @@ dynamodb = boto3.client('dynamodb')
 #     }
 # )
 #===============
+
+
+
+
+
+#wget image locally
+#need to upload into bucket
+
+
+
 
 
 # Ensuring Table exists
@@ -108,6 +151,9 @@ if tableFound == True:
                             'title': {
                                 'S': 'Fear',
                             },
+                            'image': {
+                                'S': presigned_url,
+                            },
                         },
                     },
                 },
@@ -147,14 +193,16 @@ except:
 if "Item" in response_get:
     year = response_get['Item']['year']['N']
     title = response_get['Item']['title']['S']
+    image = response_get['Item']['image']['S']
 
     print(f"The data back is {year} and {title} ")
+    print(f'The image url is: {presigned_url}')
     print("Confirmed data has been added.\n ==Now creating the Lambda==")
 else:
     print("Data not found")
 
 
-create_lambda.make_lambda()
+# create_lambda.make_lambda()
 
 
 
