@@ -28,7 +28,7 @@ print(resp)
 # except ClientError as e:
 #         logging.error(e)
 
-print(response)
+
 
 
 
