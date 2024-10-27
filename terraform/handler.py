@@ -3,13 +3,15 @@ import json
 import boto3
 
 def lambda_handler(event, context):
+    year = ''
+    title = ''
     tableName = "Movies"
     dynamodb = boto3.client('dynamodb')
     response_get = None
     print("attempting to get data")
     try:
         response_get = dynamodb.get_item(
-            Key={
+            Key={  # Escape braces
                 'year': {
                     'N': '1996',
                 },
@@ -34,5 +36,5 @@ def lambda_handler(event, context):
 
     return {
         'statusCode': 200,
-        'body': json.dumps(f"The data back is {year} and {title} " )
+        'body': json.dumps(f"The data back is {year} and {title}")
     }
