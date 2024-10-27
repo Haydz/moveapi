@@ -3,14 +3,13 @@ import zipfile
 import json
 import os
 
-#lamba code file
+policyName = 'haydn_access_dynamodb' #name of policy to be created
+roleName = 'haydn_lambda_execution_role' #name of execution role to be created
+source_file = 'lambda_function.py' # file name of lambda code to be written
+functionName = 'haydn_movie_api2' # name of lambda function to be created
 
+def make_lambda(tableName):
 
-def make_lambda():
-
-
-
-    source_file = 'lambda_function.py'
 
     #Getting account Number:
     sts = boto3.client("sts")
@@ -19,31 +18,28 @@ def make_lambda():
 
 
     iam = boto3.client('iam')
-    role_name = 'haydn_lambda_execution_role'
-
-
-
+        # to ensure there are no roles previously named that exist
     print("attempting to delete the inline poliy and role.")
-
     try:
         response = iam.delete_role_policy(
-            RoleName=role_name,
-            PolicyName='haydn_access_dynamodb'
+            RoleName=roleName,
+            PolicyName=policyName
         )
-        print("Policy existed, role delted.")
+        print("Policy existed, role deleted.")
     except:
-        print("couldnt delete inline policy")
+        print("Couldnt Delete Inline policy")
 
     try:
         response = iam.delete_role(
-            RoleName=role_name
+            RoleName=roleName
         )
         print("Role existed, deleted.")
     except:
         print('couldnt delete role')
     #need to create file of lambda
     # need to create permissions
-
+     
+    #execution role permissions. allowed lamnda to assume this role
     execution_role={
         "Version": "2012-10-17",
         "Statement": [
@@ -56,7 +52,7 @@ def make_lambda():
             }
         ]
     }
-
+    # Iam policy to attach to execution role
     iam_policy= {
         "Version": "2012-10-17",
         "Statement": [
@@ -72,13 +68,13 @@ def make_lambda():
                     "dynamodb:PutItem",
                     "dynamodb:UpdateItem"
                 ],
-                "Resource": "arn:aws:dynamodb:*:*:table/Movies"
+                "Resource": f"arn:aws:dynamodb:*:*:table/{tableName}"
             },
             {
                 "Sid": "GetStreamRecords",
                 "Effect": "Allow",
                 "Action": "dynamodb:GetRecords",
-                "Resource": "arn:aws:dynamodb:*:*:table/Movies/stream/* "
+                "Resource": f"arn:aws:dynamodb:*:*:table/{tableName}/stream/* "
             },
             {
                 "Sid": "WriteLogStreamsAndGroups",
@@ -100,30 +96,31 @@ def make_lambda():
 
 
 
-
-
     # Program to show various ways to
     # write data to a file using with statement
-
-    lambda_code = """
+    # code to be created that will get the data from lambda
+    # (double curly braces for escaping within f string)
+    lambda_code = f"""
 import json
 import boto3
 
 def lambda_handler(event, context):
-    tableName = "Movies"
+    year = ''
+    title = ''
+    tableName = "{tableName}"
     dynamodb = boto3.client('dynamodb')
     response_get = None
     print("attempting to get data")
     try:
         response_get = dynamodb.get_item(
-            Key={
-                'year': {
+            Key={{  
+                'year': {{
                     'N': '1996',
-                },
-                'title': {
+                }},
+                'title': {{
                     'S': 'Fear',
-                },
-            },
+                }},
+            }},
             TableName=tableName,
         )
     except:
@@ -135,24 +132,24 @@ def lambda_handler(event, context):
             year = response_get['Item']['year']['N']
             title = response_get['Item']['title']['S']
     
-            print(f"The data back is {year} and {title} ")
+            print(f"The data back is {{year}} and {{title}} ")
         else:
             print("Data not found")
 
-    return {
+    return {{
         'statusCode': 200,
-        'body': json.dumps(f"The data back is {year} and {title} " )
-    }
-    """
+        'body': json.dumps(f"The data back is {{year}} and {{title}}")
+    }}
+"""
 
-    # Writing to file
+    #code needs to be written to a file so that it can be zipped and added to the lambda
     with open(source_file, 'w') as file1:
         # Writing data to a file
         file1.write(lambda_code)
 
     try:
         execution_creation = iam.create_role(
-            RoleName=role_name,
+            RoleName=roleName,
             AssumeRolePolicyDocument=json.dumps(execution_role)
         )
         exec_role_arn = execution_creation['Role']['Arn']
@@ -162,8 +159,8 @@ def lambda_handler(event, context):
 
     try:
         iam.put_role_policy(
-            RoleName=role_name,
-            PolicyName="haydn_access_dynamodb",
+            RoleName=roleName,
+            PolicyName=policyName,
             PolicyDocument=json.dumps(iam_policy)
         )
     except:
@@ -182,12 +179,11 @@ def lambda_handler(event, context):
     client = boto3.client('lambda')
 
 
-
+    # Ensuring there are no Functions with the same name
     print("deleting function for fresh start")
-
     try:
         client.delete_function(
-        FunctionName='haydn_movie_api2'
+        FunctionName=functionName
         )
     except:
         print("Could not delete function")
@@ -197,7 +193,7 @@ def lambda_handler(event, context):
 
     try:
         response = client.create_function( 
-        FunctionName='haydn_movie_api2',
+        FunctionName=functionName,
         Runtime='python3.12',
         Role=exec_role_arn,
         Handler='lambda_function.lambda_handler',
