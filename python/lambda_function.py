@@ -11,7 +11,7 @@ def lambda_handler(event, context):
     print("attempting to get data")
     try:
         response_get = dynamodb.get_item(
-            Key={  # Escape braces
+            Key={
                 'year': {
                     'N': '1996',
                 },

@@ -1,11 +1,12 @@
 
 import boto3
-import json
 import create_lambda
 import logging
 from botocore.exceptions import ClientError
+import sys
 
 
+logging.basicConfig(level=logging.INFO)
 bucket_name= 'haydn-test-stuff' # bucket to upload image file too
 filename = 'fear.jpg' #name of image file
 image = "https://m.media-amazon.com/images/M/MV5BZTM4ZmJmMTQtMWUxOS00MjQxLTllNmQtNzI4YWVhYzZlNTRkXkEyXkFqcGdeQXVyNjU0NTI0Nw@@._V1_SX300.jpg" # image URL
@@ -170,8 +171,12 @@ try:
         TableName=tableName,
     )
     print(response_get)
-except:
-    print("Error getting data")
+except ClientError as e:
+    logging.error(f"Error getting data: {e.response['Error']['Message']}")
+    sys.exit(1)  # Exit with a non-zero code indicating an error
+except Exception as e:
+    logging.error(f"Unexpected error: {str(e)}")
+    sys.exit(1)
 
 if "Item" in response_get:
     year = response_get['Item']['year']['N']
@@ -182,7 +187,8 @@ if "Item" in response_get:
     print(f'The image url is: {presigned_url}')
     print("Confirmed data has been added.\n ==Now creating the Lambda==")
 else:
-    print("Data not found")
+    logging.warning("Data not found")
+    sys.exit(1)
 
 
 # a call to create_lambda is made to create the lambda to show

@@ -2,6 +2,7 @@ import boto3
 import zipfile
 import json
 import os
+import sys
 
 policyName = 'haydn_access_dynamodb' #name of policy to be created
 roleName = 'haydn_lambda_execution_role' #name of execution role to be created
@@ -9,16 +10,15 @@ source_file = 'lambda_function.py' # file name of lambda code to be written
 functionName = 'haydn_movie_api2' # name of lambda function to be created
 
 def make_lambda(tableName):
-
-
     #Getting account Number:
-    sts = boto3.client("sts")
-    response = sts.get_caller_identity()
-    account_number = response["Account"]
+    # sts = boto3.client("sts")
+    # response = sts.get_caller_identity()
+    # account_number = response["Account"]
+    # print(f"Creating Lambda ")
 
 
     iam = boto3.client('iam')
-        # to ensure there are no roles previously named that exist
+    # to ensure there are no roles previously named that exist
     print("attempting to delete the inline poliy and role.")
     try:
         response = iam.delete_role_policy(
@@ -36,8 +36,8 @@ def make_lambda(tableName):
         print("Role existed, deleted.")
     except:
         print('couldnt delete role')
-    #need to create file of lambda
-    # need to create permissions
+        sys.exit(1)
+
      
     #execution role permissions. allowed lamnda to assume this role
     execution_role={
@@ -95,6 +95,28 @@ def make_lambda(tableName):
     }
 
 
+    try:
+        execution_creation = iam.create_role(
+            RoleName=roleName,
+            AssumeRolePolicyDocument=json.dumps(execution_role)
+        )
+        exec_role_arn = execution_creation['Role']['Arn']
+        print(exec_role_arn)
+    except Exception as e:
+        print("Error creating role:", e)
+        sys.exit(1)
+
+    try:
+        iam.put_role_policy(
+            RoleName=roleName,
+            PolicyName=policyName,
+            PolicyDocument=json.dumps(iam_policy)
+        )
+    except:
+        print("Policy was unable to be attached")
+        sys.exit(1)
+
+
 
     # Program to show various ways to
     # write data to a file using with statement
@@ -141,31 +163,15 @@ def lambda_handler(event, context):
         'body': json.dumps(f"The data back is {{year}} and {{title}}")
     }}
 """
+    
+  
 
     #code needs to be written to a file so that it can be zipped and added to the lambda
     with open(source_file, 'w') as file1:
         # Writing data to a file
         file1.write(lambda_code)
-
-    try:
-        execution_creation = iam.create_role(
-            RoleName=roleName,
-            AssumeRolePolicyDocument=json.dumps(execution_role)
-        )
-        exec_role_arn = execution_creation['Role']['Arn']
-        print(exec_role_arn)
-    except:
-        exit()
-
-    try:
-        iam.put_role_policy(
-            RoleName=roleName,
-            PolicyName=policyName,
-            PolicyDocument=json.dumps(iam_policy)
-        )
-    except:
-        print("policy not attached")
-
+    
+    os.chmod(source_file, 0o755)
 
     with zipfile.ZipFile('code.zip', 'w',zipfile.ZIP_DEFLATED) as myzip:
         myzip.write(source_file,arcname=os.path.basename(source_file))
@@ -173,7 +179,7 @@ def lambda_handler(event, context):
     with zipfile.ZipFile('code.zip', 'r') as z:
         print(z.namelist())
 
-    os.chmod(source_file, 0o755)
+
     # os.chmod("code.zip", 0o755)
 
     client = boto3.client('lambda')
